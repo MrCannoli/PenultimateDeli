@@ -7,6 +7,20 @@ import time
 import csv
 import os
 
+# Class with ANSI escape sequences denoting printed text colors.
+# Snagged from https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 class CandlestickRequest:
     # This is a key to a free account, limited to 5 requests per second
     api_key = '5xDdaB3S8gsL0jTsxpCaiLMLHTqyD7tD'
@@ -35,7 +49,7 @@ class CandlestickRequest:
     def wait_for_next_req_time(self):
         if(CandlestickRequest.get_request_counter(self) == CandlestickRequest.REQ_LIMIT):
             wait_time = 60.1 - (time.time() - max(self._request_times))
-            print("Hit request limit, waiting ", wait_time, " seconds before continuing.")
+            print(bcolors.OKCYAN + "Hit request limit, waiting ", wait_time, " seconds before continuing.")
             time.sleep(wait_time)
 
 
@@ -57,16 +71,18 @@ class CandlestickRequest:
             raise RuntimeError("Hit the request limit - slow down!")
 
         # Make the HTTP request for the stock ticker data
-        raw_response = requests.get(request_url, params={ 'apiKey': CandlestickRequest.api_key }) # run GET request to polygon
+        raw_response = requests.get(request_url, params={ 'apiKey': CandlestickRequest.api_key })
 
         # Add the request time to the array after removing the oldest time
         self._request_times.pop(0)
         self._request_times.append(time.time())
         
-        if(raw_response.status_code != 200): # 200 is OK
-            raise RuntimeError(f"Failed HTTP request with status code: {raw_response.status_code}")
+        if(raw_response.status_code == 200): # 200 is OK
+            print(bcolors.OKGREEN + f"Data grabbed successfully for {symbol} for the date range {start_date} to {end_date}")
+        elif(raw_response.status_code == 429):
+            raise RuntimeError("Made subsequent file calls too soon!")
         else:
-            print(f"Data grabbed successfully for {symbol} for the date range {start_date} to {end_date}")
+            raise RuntimeError(f"Failed HTTP request with status code: {raw_response.status_code}")
         
         return raw_response.json()
 
@@ -88,43 +104,14 @@ class CandlestickRequest:
             csvwriter.writerow(parsed_data)
 
 
-'''
-Additional fields within the daily_value to play with
-resultsarray
-
-c number
-The close price for the symbol in the given time period.
-
-h number
-The highest price for the symbol in the given time period.
-
-l number
-The lowest price for the symbol in the given time period.
-
-n number
-The number of transactions in the aggregate window.
-
-o number
-The open price for the symbol in the given time period.
-
-t integer
-The Unix Msec timestamp for the start of the aggregate window.
-
-v number
-The trading volume of the symbol in the given time period.
-
-vw number
-The volume weighted average price.
-'''
-
 if __name__ == '__main__':
     # Test run
     candle = CandlestickRequest()
 
-    start_date = '2021-06-10'
-    end_date = '2021-06-30'
+    start_date = '2020-06-01'
+    end_date = '2022-06-01'
 
-    # Test list includes 1 more stock than we can request in one minute
+    # Test list includes 1 more stock than we can request in one minute to test the request delay feature
     ticker_list = ['AAPL', 'GOOGL', 'ABC', 'MORT', 'NFLX', 'AMC']
     
     if not os.path.exists('../DataDeli'):
@@ -135,7 +122,7 @@ if __name__ == '__main__':
 
         # Check if a CSV already exists for the desired data
         if(os.path.exists(csv_filename)):
-            print("Data file for ticker " + ticker + " already exists! Skipping.")
+            print(bcolors.WARNING + "Data file for ticker " + ticker + " for date range " + start_date + " to " + end_date + " already exists! Skipping.")
             continue
 
         # Wait until the next time we can make a request for data
