@@ -4,6 +4,8 @@
 
 import requests
 import time
+import csv
+import os
 
 class CandlestickRequest:
     # This is a key to a free account, limited to 5 requests per second
@@ -16,10 +18,9 @@ class CandlestickRequest:
         # This array keeps track of the time of the last 5 requests made so we can avoid the limit
         self._request_times = [0,0,0,0,0]
 
-    # URL used to make requests of the polygon API
-
-    def set_api_key(new_key: str):
-        api_key = new_key
+    # Update the API key
+    def set_api_key(new_key:str):
+        CandlestickRequest.api_key = new_key
     
     # Get the number of requests that have occurred in the last minute
     def get_request_counter(self):
@@ -29,6 +30,14 @@ class CandlestickRequest:
             if((present_time - t) < 60):
                 request_count+=1
         return request_count
+
+    # Wait until the next time we can make a request for data
+    def wait_for_next_req_time(self):
+        if(CandlestickRequest.get_request_counter(self) == CandlestickRequest.REQ_LIMIT):
+            wait_time = 60.1 - (time.time() - max(self._request_times))
+            print("Hit request limit, waiting ", wait_time, " seconds before continuing.")
+            time.sleep(wait_time)
+
 
 
     #########################################################################################
@@ -60,6 +69,23 @@ class CandlestickRequest:
             print(f"Data grabbed successfully for {symbol} for the date range {start_date} to {end_date}")
         
         return raw_response.json()
+
+    def parse_ticker_data(self, ticker_data, csvwriter):
+        headers = ['Timestamp', 'Open price', 'High Price', 'Low Price', 'Close Price', 'Num Transactions', 'Trade volume', 'Volume Weighted Price']
+        csvwriter.writerow(headers)
+
+        parsed_data = [None] * 8
+        for sample in ticker_data['results']:
+            parsed_data[0]=sample['t'] # Timestamp
+            parsed_data[1]=sample['o'] # Open price
+            parsed_data[2]=sample['h'] # High price
+            parsed_data[3]=sample['l'] # Low price
+            parsed_data[4]=sample['c'] # close price
+            parsed_data[5]=sample['n'] # Number of transactions
+            parsed_data[6]=sample['v'] # Trading volume
+            parsed_data[7]=sample['vw'] # Volume weighted price
+            
+            csvwriter.writerow(parsed_data)
 
 
 '''
@@ -95,16 +121,30 @@ if __name__ == '__main__':
     # Test run
     candle = CandlestickRequest()
 
-    ticker_code = 'GOOGL' # the trade symbol for the company you want to pull history for
-    start_date = '2021-07-22' # free accounts are limited to 2 years worth of history
-    end_date = '2021-07-23'
+    start_date = '2021-06-10'
+    end_date = '2021-06-30'
 
+    # Test list includes 1 more stock than we can request in one minute
     ticker_list = ['AAPL', 'GOOGL', 'ABC', 'MORT', 'NFLX', 'AMC']
     
+    if not os.path.exists('../DataDeli'):
+        os.mkdir('../DataDeli')
+
     for ticker in ticker_list:
+        csv_filename = "../DataDeli/" + ticker + '_s' + start_date + "_e" + end_date + ".csv"
+
+        # Check if a CSV already exists for the desired data
+        if(os.path.exists(csv_filename)):
+            print("Data file for ticker " + ticker + " already exists! Skipping.")
+            continue
+
+        # Wait until the next time we can make a request for data
+        candle.wait_for_next_req_time()
+
+        # Get the data
         result=candle.make_ticker_request(ticker, start_date, end_date)
-        
-        for daily_value in result["results"]:
-            print(f'Epoch: { daily_value["t"] }') 
-            print(f'Open: ${ daily_value["o"] }')
-            print(f'Close: ${ daily_value["c"] }\n')
+
+        with open(csv_filename, 'w', newline='') as csvfile:
+            print("Writing data to ", csv_filename)
+            csvwriter = csv.writer(csvfile)
+            candle.parse_ticker_data(result, csvwriter)
