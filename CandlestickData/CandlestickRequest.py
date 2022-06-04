@@ -69,7 +69,8 @@ class CandlestickRequest:
     # @param[in] time_range: Range with which to gather the data.                           #
     #########################################################################################
     def make_ticker_request(self, symbol, start_date, end_date, step='1', time_range='day'):
-        # Generate the formatted request URL
+        # Generate the formatted request URLs
+        check_availability_url = f'https://api.polygon.io/vX/reference/tickers?sort=ticker&ticker.gte=B&ticker.lt=C'
         request_url = f'https://api.polygon.io/v2/aggs/ticker/{symbol}/range/{step}/{time_range}/{start_date}/{end_date}'
 
         if(CandlestickRequest.get_request_counter(self) == CandlestickRequest.REQ_LIMIT):
@@ -146,6 +147,30 @@ class CandlestickRequest:
 
             return out_stock_list
 
+    # Rearrange the raw input data (from the source_filepath) into a format that is usable by the AI
+    # In particular, map the specified last few days' data into a digestable row
+    def generate_input_map(self, source_filepath, parsed_data_filepath, num_days):
+        # Start at index num_days + 1 to go past the header
+        # Input data is past days (sequentially), with last input being the present day's opening price
+        # Test data is the high value for the present day
+        formatted_list = []
+        with open(source_filepath, 'r', newline='') as source_file:
+            source_reader = csv.reader(source_file)
+            source_list = list(source_reader)
+
+            for i in range(1+num_days, len(source_list)):
+                sublist = []
+                for j in range(num_days):
+                    # Include each row of inputs starting at oldest first
+                    sublist.extend(source_list[i-(num_days-j)][1:8]) # start at 1 to skip the timestamp
+                # Open price (input) and high price (test value) of the present day
+                sublist.extend(source_list[i][1:3])
+                formatted_list.append(sublist)
+
+        # Write the parsed data to a new file at the specified location
+        with open(parsed_data_filepath,'w', newline='') as parsed_data_file:
+            csvwriter = csv.writer(parsed_data_file)
+            csvwriter.writerows(formatted_list)
 
 
 if __name__ == '__main__':
