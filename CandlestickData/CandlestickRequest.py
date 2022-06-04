@@ -52,7 +52,7 @@ class CandlestickRequest:
     # Wait until the next time we can make a request for data
     def wait_for_next_req_time(self, force_wait=False):
         if(CandlestickRequest.get_request_counter(self) == CandlestickRequest.REQ_LIMIT):
-            wait_time = 60.1 - (time.time() - max(self._request_times))
+            wait_time = 60.01 - (time.time() - max(self._request_times))
             print(bcolors.OKCYAN + f"Hit request limit, waiting {wait_time} seconds before continuing." + bcolors.ENDC)
             time.sleep(wait_time)
         elif(force_wait):
@@ -85,18 +85,18 @@ class CandlestickRequest:
         self._request_times.pop(0)
         self._request_times.append(time.time())
 
-        # If we were delayed, wait and try again
-        
-        if(results_json['resultsCount'] == 0):
-            print(bcolors.WARNING + f"Stock request for {symbol} failed - no data available" + bcolors.ENDC)
-            results_json = None 
-        elif(raw_response.status_code == 200): # 200 is OK
-            print(bcolors.OKGREEN + f"Data grabbed successfully for {symbol} for the date range {start_date} to {end_date}" + bcolors.ENDC)
-        elif(raw_response.status_code == 429): # Calls happened too quickly
+        if(raw_response.status_code == 429): # Calls happened too quickly
             raise RuntimeError("Made subsequent file calls too soon!")
-        else:
+        elif(raw_response.status_code != 200): # 200 is OK
             raise RuntimeError(f"Failed HTTP request with status code: {raw_response.status_code}")
         
+
+        if(results_json['resultsCount'] == 0):
+            print(bcolors.FAIL + f"Stock request for {symbol} failed - no data available" + bcolors.ENDC)
+            results_json = None 
+        else:
+            print(bcolors.OKGREEN + f"Data grabbed successfully for {symbol} for the date range {start_date} to {end_date}" + bcolors.ENDC)
+
         return results_json
 
     # Parse ticker data into a consumable array and write it to a CSV file
@@ -105,17 +105,22 @@ class CandlestickRequest:
         csvwriter.writerow(headers)
 
         parsed_data = [None] * 8
-        for sample in ticker_data['results']:
-            parsed_data[0]=sample['t'] # Timestamp
-            parsed_data[1]=sample['o'] # Open price
-            parsed_data[2]=sample['h'] # High price
-            parsed_data[3]=sample['l'] # Low price
-            parsed_data[4]=sample['c'] # close price
-            parsed_data[5]=sample['n'] # Number of transactions
-            parsed_data[6]=sample['v'] # Trading volume
-            parsed_data[7]=sample['vw'] # Volume weighted price
-            
-            csvwriter.writerow(parsed_data)
+
+        try:
+            for sample in ticker_data['results']:
+                parsed_data[0]=sample['t'] # Timestamp
+                parsed_data[1]=sample['o'] # Open price
+                parsed_data[2]=sample['h'] # High price
+                parsed_data[3]=sample['l'] # Low price
+                parsed_data[4]=sample['c'] # close price
+                parsed_data[5]=sample['n'] # Number of transactions
+                parsed_data[6]=sample['v'] # Trading volume
+                parsed_data[7]=sample['vw'] # Volume weighted price
+                
+                csvwriter.writerow(parsed_data)
+        except KeyError:
+            print(bcolors.FAIL + f"Stock lacks parameters required for parsing. Deleting." + bcolors.ENDC)
+            raise
 
     # Get a random list of stocks from the given ticker file
     def pick_random_stocks(self, ticker_file, num_rand_stocks):
@@ -196,7 +201,11 @@ if __name__ == '__main__':
         result=candle.make_ticker_request(ticker, start_date, end_date)
         
         if result is not None:
-            with open(csv_filename, 'w', newline='') as csvfile:
-                print("Writing data to ", csv_filename)
-                csvwriter = csv.writer(csvfile)
-                candle.parse_ticker_data(result, csvwriter)
+            try:
+                with open(csv_filename, 'w', newline='') as csvfile:
+                    print("Writing data to ", csv_filename)
+                    csvwriter = csv.writer(csvfile)
+                    candle.parse_ticker_data(result, csvwriter)
+            except KeyError:
+                # Failed to parse data, so delete the CSV file
+                os.remove(csv_filename)
