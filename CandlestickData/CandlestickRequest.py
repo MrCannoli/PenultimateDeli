@@ -58,6 +58,52 @@ class CandlestickRequest:
         elif(force_wait):
             time.sleep(60)
 
+    # Update the request time array. Should be ran after a polygon API call.
+    def update_request_time(self):
+        # Add the request time to the array after removing the oldest time
+        self._request_times.pop(0)
+        self._request_times.append(time.time())
+
+    # Check the status of a request
+    def check_response(self, raw_response):
+        if(raw_response.status_code == 429): # Calls happened too quickly
+            raise RuntimeError("Made subsequent file calls too soon!")
+        elif(raw_response.status_code != 200): # 200 is OK
+            raise RuntimeError(f"Failed HTTP request with status code: {raw_response.status_code}")
+
+    # Request 1000 tickers that are available on polygon.io, starting with the search key provided
+    def request_ticker_list(self, search_key):
+        request_url = f'https://api.polygon.io/v3/reference/tickers?active=true&sort=ticker&ticker.gte={search_key}&order=asc&limit=1000&apiKey={CandlestickRequest.api_key}'
+
+        # Make the HTTP request for the stock ticker list
+        raw_response = requests.get(request_url, params={ 'apiKey': CandlestickRequest.api_key })
+
+        self.update_request_time()
+        self.check_response(raw_response)
+
+        # Convert the readings into JSON for ease of use
+        results_json = raw_response.json()
+
+        return results_json
+    
+    # Parse data from a provided ticker list
+    def parse_ticker_list(self, ticker_list, csvwriter):
+        # Note, this writes the header every time this function is called
+        headers = ['Ticker Name', 'Market', 'Currency Symbol', 'locale']
+        csvwriter.writerow(headers)
+
+        parsed_data = [None] * 4
+
+        for sample in ticker_list['results']:
+            try:
+                parsed_data[0]=sample['ticker']
+                parsed_data[1]=sample['market']
+                parsed_data[2]=sample['currency_name']
+                parsed_data[3]=sample['locale']
+                
+                csvwriter.writerow(parsed_data)
+            except KeyError:
+                print(bcolors.WARNING + f"{sample['ticker']} lacks parameters required for parsing. Not adding to list" + bcolors.ENDC)
 
     #########################################################################################
     # @brief Request the candlestick data for a ticker using the presently configured set   #
@@ -79,18 +125,11 @@ class CandlestickRequest:
         # Make the HTTP request for the stock ticker data
         raw_response = requests.get(request_url, params={ 'apiKey': CandlestickRequest.api_key })
 
+        self.update_request_time()
+        self.check_response(raw_response)
+
         # Convert the readings into JSON for ease of use
         results_json = raw_response.json()
-            
-        # Add the request time to the array after removing the oldest time
-        self._request_times.pop(0)
-        self._request_times.append(time.time())
-
-        if(raw_response.status_code == 429): # Calls happened too quickly
-            raise RuntimeError("Made subsequent file calls too soon!")
-        elif(raw_response.status_code != 200): # 200 is OK
-            raise RuntimeError(f"Failed HTTP request with status code: {raw_response.status_code}")
-        
 
         if(results_json['resultsCount'] == 0):
             print(bcolors.FAIL + f"Stock request for {symbol} failed - no data available" + bcolors.ENDC)
@@ -212,7 +251,7 @@ if __name__ == '__main__':
         print(ticker_list)
 
     for ticker in ticker_list:
-        csv_filename = f"../DataDeli/{ticker}_s{start_date}_e{end_date}.csv"
+        csv_filename = f"../DataDeli/RawData/{ticker}_s{start_date}_e{end_date}.csv"
 
         # Check if a CSV already exists for the desired data
         if(os.path.exists(csv_filename)):
