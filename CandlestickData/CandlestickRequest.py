@@ -50,11 +50,14 @@ class CandlestickRequest:
         return request_count
 
     # Wait until the next time we can make a request for data
-    def wait_for_next_req_time(self):
+    def wait_for_next_req_time(self, force_wait=False):
         if(CandlestickRequest.get_request_counter(self) == CandlestickRequest.REQ_LIMIT):
             wait_time = 60.1 - (time.time() - max(self._request_times))
-            print(bcolors.OKCYAN + f"Hit request limit, waiting {wait_time} seconds before continuing.")
+            print(bcolors.OKCYAN + f"Hit request limit, waiting {wait_time} seconds before continuing." + bcolors.ENDC)
             time.sleep(wait_time)
+        elif(force_wait):
+            time.sleep(60)
+
 
     #########################################################################################
     # @brief Request the candlestick data for a ticker using the presently configured set   #
@@ -75,20 +78,28 @@ class CandlestickRequest:
         # Make the HTTP request for the stock ticker data
         raw_response = requests.get(request_url, params={ 'apiKey': CandlestickRequest.api_key })
 
+        # Convert the readings into JSON for ease of use
+        results_json = raw_response.json()
+            
         # Add the request time to the array after removing the oldest time
         self._request_times.pop(0)
         self._request_times.append(time.time())
+
+        # If we were delayed, wait and try again
         
-        if(raw_response.status_code == 200): # 200 is OK
-            print(bcolors.OKGREEN + f"Data grabbed successfully for {symbol} for the date range {start_date} to {end_date}")
+        if(results_json['resultsCount'] == 0):
+            print(bcolors.WARNING + f"Stock request for {symbol} failed - no data available" + bcolors.ENDC)
+            results_json = None 
+        elif(raw_response.status_code == 200): # 200 is OK
+            print(bcolors.OKGREEN + f"Data grabbed successfully for {symbol} for the date range {start_date} to {end_date}" + bcolors.ENDC)
         elif(raw_response.status_code == 429): # Calls happened too quickly
             raise RuntimeError("Made subsequent file calls too soon!")
         else:
             raise RuntimeError(f"Failed HTTP request with status code: {raw_response.status_code}")
         
-        return raw_response.json()
+        return results_json
 
-    # Create a CSV file from a given set of JSON ticker data
+    # Parse ticker data into a consumable array and write it to a CSV file
     def parse_ticker_data(self, ticker_data, csvwriter):
         headers = ['Timestamp', 'Open price', 'High Price', 'Low Price', 'Close Price', 'Num Transactions', 'Trade volume', 'Volume Weighted Price']
         csvwriter.writerow(headers)
@@ -108,6 +119,8 @@ class CandlestickRequest:
 
     # Get a random list of stocks from the given ticker file
     def pick_random_stocks(self, ticker_file, num_rand_stocks):
+        if num_rand_stocks == 0:
+            raise ValueError("No random stocks requested.")
         if not os.path.exists(ticker_file):
             raise ValueError(f"Provided file does not exist! Check and confirm the path is correct: {ticker_file}")
 
@@ -134,24 +147,28 @@ if __name__ == '__main__':
     # Default end date is present day, start date is two years prior 
     present_date = datetime.datetime.now()
     end_date = str(present_date)[0:10]
-    start_date = str(present_date - datetime.timedelta(weeks=104))[0:10] # For some reason they don't support years?!
+    start_date = end_date.replace('2022', '2020')
 
     # Default ticker list includes 1 more stock than we can request in one minute to test the request delay feature
-    #ticker_list = ['AAPL', 'GOOGL', 'ABC', 'MORT', 'NFLX', 'AMC']
-    ticker_list = []
+    ticker_list = ['AAPL', 'GOOGL', 'ABC', 'MORT', 'NFLX', 'AMC']
 
     # Default to not using a file
     ticker_file = ''
     num_rand_stocks = 0
 
     # Parse command line inputs
-    parser = argparse.ArgumentParser(description='Process requests for historical stock data')
-    parser.add_argument('--start_date', type=str, nargs=1, dest=start_date, help='Start date for the request')
-    parser.add_argument('--end_date', type=str, nargs=1, dest=end_date, help='End date for the request')
-    parser.add_argument('--ticker_file', type=str, nargs=1, dest=ticker_file, help='File with tickers')
-    parser.add_argument('--num_rand_stocks', type=int, nargs=1, dest=num_rand_stocks, help='Number of random stocks to pull from the ticker file')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--start_date', type=str, nargs=1, default=None, dest='start_date', help='Start date for the request')
+    parser.add_argument('-e', '--end_date', type=str, nargs=1, default=None, dest='end_date', help='End date for the request')
+    parser.add_argument('-t', '--ticker_file', type=str, nargs=1, default=None, dest='ticker_file', help='File with tickers')
+    parser.add_argument('-n', '--num_rand_stocks', type=int, default=0, dest='num_rand_stocks', help='Number of random stocks to pull from the ticker file')
 
     args = parser.parse_args()
+    if(args.start_date is not None and args.end_date is not None):
+        start_date = args.start_date[0]
+        end_date = args.end_date[0]
+    ticker_file = args.ticker_file[0]
+    num_rand_stocks = args.num_rand_stocks
 
     # Create the object to handle our request
     candle = CandlestickRequest()
@@ -162,13 +179,14 @@ if __name__ == '__main__':
     # If a ticker file was provided, overwrite the ticker list with random set of stocks
     if ticker_file:
         ticker_list = candle.pick_random_stocks(ticker_file, num_rand_stocks)
+        print(ticker_list)
 
     for ticker in ticker_list:
         csv_filename = f"../DataDeli/{ticker}_s{start_date}_e{end_date}.csv"
 
         # Check if a CSV already exists for the desired data
         if(os.path.exists(csv_filename)):
-            print(bcolors.WARNING + f"Data file for ticker {ticker} for date range {start_date} to {end_date} already exists! Skipping.")
+            print(bcolors.WARNING + f"Data file for ticker {ticker} for date range {start_date} to {end_date} already exists! Skipping." + bcolors.ENDC)
             continue
 
         # Wait until the next time we can make a request for data
@@ -176,8 +194,9 @@ if __name__ == '__main__':
 
         # Get the data
         result=candle.make_ticker_request(ticker, start_date, end_date)
-
-        with open(csv_filename, 'w', newline='') as csvfile:
-            print("Writing data to ", csv_filename)
-            csvwriter = csv.writer(csvfile)
-            candle.parse_ticker_data(result, csvwriter)
+        
+        if result is not None:
+            with open(csv_filename, 'w', newline='') as csvfile:
+                print("Writing data to ", csv_filename)
+                csvwriter = csv.writer(csvfile)
+                candle.parse_ticker_data(result, csvwriter)
