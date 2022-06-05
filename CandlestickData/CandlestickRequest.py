@@ -191,23 +191,22 @@ class CandleParser:
     # In particular, map the specified last few days' data into a digestable row
     # This follows LIBSVM format: https://catboost.ai/en/docs/concepts/input-data_libsvm
     def generate_input_map(self, source_filepath, parsed_data_filepath, num_days):
-        # Start at index num_days + 1 to go past the header
-        # Input data is past days (sequentially), with last input being the present day's opening price
-        # Test data is the high value for the present day
         formatted_list = []
         with open(source_filepath, 'r', newline='') as source_file:
             source_reader = csv.reader(source_file)
             source_list = list(source_reader)
 
+            # Start at index num_days + 1 to go past the header
             for i in range(1+num_days, len(source_list)):
                 sublist = []
                 # First value needs to be the "label" value - in our case, this is the high price for present day
+                # The list selection may seem odd, but just doing [2] results in the value getting chopped up after each number
                 sublist.extend(source_list[i][2:3])
-                for j in range(num_days):
-                    # Include each row of inputs starting at oldest first
-                    sublist.extend(source_list[i-(num_days-j)][1:8]) # start at 1 to skip the timestamp
-                # Final input is the open price of the present day
+                # First input is the open price of the present day
                 sublist.extend(source_list[i][1:2])
+                for j in range(1, num_days+1):
+                    # Include each row of inputs starting at most recent day first
+                    sublist.extend(source_list[i-j][1:8]) # start at 1 to skip the timestamp
                 formatted_list.append(sublist)
         
         # Update the list with input labels
@@ -218,6 +217,7 @@ class CandleParser:
 
         # Write the parsed data to a new file at the specified location
         with open(parsed_data_filepath,'w', newline='') as parsed_data_file:
+            print(f"Writing LIBSVM formatted data to {parsed_data_filepath}")
             csvwriter = csv.writer(parsed_data_file, delimiter=' ')
             csvwriter.writerows(formatted_list)
 
