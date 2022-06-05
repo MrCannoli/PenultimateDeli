@@ -186,8 +186,10 @@ class CandlestickRequest:
 
             return out_stock_list
 
+class CandleParser:
     # Rearrange the raw input data (from the source_filepath) into a format that is usable by the AI
     # In particular, map the specified last few days' data into a digestable row
+    # This follows LIBSVM format: https://catboost.ai/en/docs/concepts/input-data_libsvm
     def generate_input_map(self, source_filepath, parsed_data_filepath, num_days):
         # Start at index num_days + 1 to go past the header
         # Input data is past days (sequentially), with last input being the present day's opening price
@@ -199,16 +201,24 @@ class CandlestickRequest:
 
             for i in range(1+num_days, len(source_list)):
                 sublist = []
+                # First value needs to be the "label" value - in our case, this is the high price for present day
+                sublist.extend(source_list[i][2:3])
                 for j in range(num_days):
                     # Include each row of inputs starting at oldest first
                     sublist.extend(source_list[i-(num_days-j)][1:8]) # start at 1 to skip the timestamp
-                # Open price (input) and high price (test value) of the present day
-                sublist.extend(source_list[i][1:3])
+                # Final input is the open price of the present day
+                sublist.extend(source_list[i][1:2])
                 formatted_list.append(sublist)
+        
+        # Update the list with input labels
+        for sublist in formatted_list:
+            for i in range(1, len(sublist)):
+                sublist[i] = f"{i}:{sublist[i]}"
+
 
         # Write the parsed data to a new file at the specified location
         with open(parsed_data_filepath,'w', newline='') as parsed_data_file:
-            csvwriter = csv.writer(parsed_data_file)
+            csvwriter = csv.writer(parsed_data_file, delimiter=' ')
             csvwriter.writerows(formatted_list)
 
 
