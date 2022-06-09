@@ -241,6 +241,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--end_date', type=str, nargs=1, default=None, dest='end_date', help='End date for the request')
     parser.add_argument('-t', '--ticker_file', type=str, nargs=1, default=None, dest='ticker_file', help='File with tickers')
     parser.add_argument('-n', '--num_rand_stocks', type=int, default=0, dest='num_rand_stocks', help='Number of random stocks to pull from the ticker file')
+    parser.add_argument('-o', '--ordered_read', type=int, nargs=1, default=0, dest='ordered_read', help='Command an ordered read. 0 = unordered, 1 = alphabetical order, 2 = reverse alphabetical')
 
     args = parser.parse_args()
     if(args.start_date is not None and args.end_date is not None):
@@ -251,17 +252,37 @@ if __name__ == '__main__':
 
     # Create the object to handle our request
     candle = CandlestickRequest()
+
+    print(f'da arg is {args.ordered_read[0]}')
     
-    if not os.path.exists('../DataDeli'):
-        os.mkdir('../DataDeli')
+    if not os.path.exists('../CuttingBoard/RawData'):
+        os.mkdir('../CuttingBoard/RawData')
 
     # If a ticker file was provided, overwrite the ticker list with random set of stocks
     if ticker_file:
-        ticker_list = candle.pick_random_stocks(ticker_file, num_rand_stocks)
-        print(ticker_list)
+        if(args.ordered_read[0] in [1, 2]):
+            with open(ticker_file, 'r', newline='') as stock_file:
+                print(f"Reading data from {ticker_file}")
+                reader = csv.reader(stock_file)
+                ticker_list = list(reader)
+                ticker_list_size = len(ticker_list)
+                print(ticker_list[0:5])
+                if(args.ordered_read[0] == 2):
+                    print("Reverse read order!")
+                    ticker_list.reverse()
+                    print(ticker_list[0:5])
+                new_ticker_list = []
+                for ticker in ticker_list:
+                    new_ticker_list.append(ticker[0]) 
+                ticker_list = new_ticker_list
+                #print(ticker_list)
+        else:
+            ticker_list = candle.pick_random_stocks(ticker_file, num_rand_stocks)
+
+        #print(ticker_list)
 
     for ticker in ticker_list:
-        csv_filename = f"../DataDeli/RawData/{ticker}_s{start_date}_e{end_date}.csv"
+        csv_filename = f"../CuttingBoard/RawData/{ticker}_s{start_date}_e{end_date}.csv"
 
         # Check if a CSV already exists for the desired data
         if(os.path.exists(csv_filename)):

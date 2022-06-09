@@ -2,8 +2,20 @@
 
 import os
 import csv
+import argparse
 
-top_dir = "../DataDeli/ParsedData/Data_6-4-2020-2022"
+# Parse command line inputs to get the target number of days
+parser = argparse.ArgumentParser()
+parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
+parser.add_argument('-r', '--recent_num_days', type=int, default=0, dest='recent_num_days', help='Pull the most recent number of days data to combine')
+args = parser.parse_args()
+num_days = args.num_days
+recent_num_days = args.recent_num_days
+
+if num_days == 0:
+    raise ValueError("Need to supply number of days data the file is using! Use -n to specify.")
+
+top_dir = f"../CuttingBoard/ParsedData/Data_6-5-2020-2022/{num_days}_days"
 train_dir = f"{top_dir}/train"
 test_dir = f"{top_dir}/test"
 
@@ -19,9 +31,18 @@ for file in train_file_list:
     with open(f"{train_dir}/{file}", 'r', newline='') as next_file:
         print(f"Reading data from {file}")
         reader = csv.reader(next_file)
-        file_data = list(reader)
+        # Get a list of the data, limited to the last number of days listed
+        # If 0 (default), read the full list
+        file_data = list(reader)[-recent_num_days:]
         for sublist in file_data:
             combined_train_list.append(sublist)
+
+if(args.recent_num_days == 0):
+    train_file_name = "combined_train_full.csv"
+    test_file_name = "combined_test_full.csv"
+else:
+    train_file_name = f"combined_train_recent_{recent_num_days}.csv"
+    test_file_name = f"combined_recent_{recent_num_days}.csv"
 
 print(f"Writing all training data to {top_dir}/combined_train.csv")
 with open(f"{top_dir}/combined_train.csv", 'w', newline='') as combined_train_file:

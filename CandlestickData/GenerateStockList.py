@@ -1,3 +1,5 @@
+# Break down the full list of stocks available on polygon.io to a limited subset
+
 import csv
 
 polygon_basefile = '../StockLists/polygon_list.csv'

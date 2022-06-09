@@ -1,13 +1,20 @@
 # Generate an input map from all files in the specified folder
 import CandlestickRequest
 import os
+import argparse
+
+# Parse command line inputs to get the target number of days
+parser = argparse.ArgumentParser()
+parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
+args = parser.parse_args()
+num_days = args.num_days
+
+if num_days == 0:
+    raise ValueError("Need to supply number of days data the file is using! Use -n to specify.")
 
 # Directory with the original files
-original_dir = "../DataDeli/Data_6-4-2020-2022"
-new_dir = "../DataDeli/ParsedData/Data_6-4-2020-2022"
-
-# Number of days' data you want to have as an input to the bot
-num_days = 3
+original_dir = "../CuttingBoard/Data_6-5-2020-2022_stripped"
+new_dir = f"../CuttingBoard/ParsedData/Data_6-5-2020-2022/{num_days}_days/"
 
 if not os.path.exists(original_dir):
     raise RuntimeError("Was unable to find the specified data directory")
