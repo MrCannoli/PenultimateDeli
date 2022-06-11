@@ -8,14 +8,16 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
 parser.add_argument('-r', '--recent_num_days', type=int, default=0, dest='recent_num_days', help='Pull the most recent number of days data to combine')
+parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
 args = parser.parse_args()
 num_days = args.num_days
+base_folder = args.data_dir
 recent_num_days = args.recent_num_days
 
 if num_days == 0:
     raise ValueError("Need to supply number of days data the file is using! Use -n to specify.")
 
-top_dir = f"../CuttingBoard/ParsedData/Data_6-5-2020-2022/{num_days}_days"
+top_dir = f"../CuttingBoard/ParsedData/{base_folder}/{num_days}_days"
 train_dir = f"{top_dir}/train"
 test_dir = f"{top_dir}/test"
 

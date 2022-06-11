@@ -206,7 +206,7 @@ class CandleParser:
                 sublist.extend(source_list[i][1:2])
                 for j in range(1, num_days+1):
                     # Include each row of inputs starting at most recent day first
-                    sublist.extend(source_list[i-j][1:8]) # start at 1 to skip the timestamp
+                    sublist.extend(source_list[i-j][1:]) # start at 1 to skip the timestamp
                 formatted_list.append(sublist)
         
         # Update the list with input labels

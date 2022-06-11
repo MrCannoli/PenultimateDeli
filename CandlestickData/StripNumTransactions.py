@@ -2,9 +2,21 @@
 
 import os
 import csv
+import argparse
 
-dir_to_strip = '../CuttingBoard/Data_6-5-2020-2022'
-dir_w_strip = '../CuttingBoard/Data_6-5-2020-2022_stripped'
+# Parse command line inputs to get the target number of days
+parser = argparse.ArgumentParser()
+parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
+args = parser.parse_args()
+base_folder = args.data_dir
+
+dir_to_strip = f'../CuttingBoard/{base_folder}'
+dir_w_strip = f'../CuttingBoard/{base_folder}_stripped'
+
+if not os.path.exists(dir_to_strip):
+    raise RuntimeError(f"Was unable to find the specified data directory: {dir_to_strip}")
+if not os.path.exists(dir_w_strip):
+    os.mkdir(dir_w_strip)
 
 file_list = os.listdir(dir_to_strip)
 
@@ -20,4 +32,4 @@ for datafile in file_list:
 
             # Write everything except the number of transactions
             for r in reader:
-                writer.writerow((r[0], r[1], r[2], r[4], r[6], r[7]))
+                writer.writerow((r[0], r[1], r[2], r[3], r[4], r[6], r[7]))

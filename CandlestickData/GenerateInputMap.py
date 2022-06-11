@@ -6,18 +6,22 @@ import argparse
 # Parse command line inputs to get the target number of days
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
+parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
 args = parser.parse_args()
 num_days = args.num_days
+base_folder = args.data_dir
 
 if num_days == 0:
     raise ValueError("Need to supply number of days data the file is using! Use -n to specify.")
 
 # Directory with the original files
-original_dir = "../CuttingBoard/Data_6-5-2020-2022_stripped"
-new_dir = f"../CuttingBoard/ParsedData/Data_6-5-2020-2022/{num_days}_days/"
+original_dir = f"../CuttingBoard/{base_folder}"
+new_dir = f"../CuttingBoard/ParsedData/{base_folder}/{num_days}_days/"
 
 if not os.path.exists(original_dir):
     raise RuntimeError("Was unable to find the specified data directory")
+if not os.path.exists(f"../CuttingBoard/ParsedData/{base_folder}"):
+    os.mkdir(f"../CuttingBoard/ParsedData/{base_folder}")
 if not os.path.exists(new_dir):
     os.mkdir(new_dir)
 

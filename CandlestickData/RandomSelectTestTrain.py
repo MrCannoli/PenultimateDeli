@@ -8,8 +8,10 @@ import argparse
 # Parse command line inputs to get the target number of days
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
+parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
 args = parser.parse_args()
 num_days = args.num_days
+base_folder = args.data_dir
 
 if num_days == 0:
     raise ValueError("Need to supply number of days data the file is using! Use -n to specify.")
@@ -22,7 +24,7 @@ train_dir_suffix = "/train"
 test_dir_suffix = "/test"
 
 # Directory with files to be sorted
-top_dir = f"../CuttingBoard/ParsedData/Data_6-5-2020-2022/{num_days}_days"
+top_dir = f"../CuttingBoard/ParsedData/{base_folder}/{num_days}_days"
 
 if not os.path.exists(top_dir):
     raise ValueError(f"Provided path could not be found: {top_dir}")
