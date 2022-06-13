@@ -9,6 +9,7 @@
 echo "Configuring data for " $1 " days' worth from ../CuttingBoard/" $2
 
 # Configure the raw data for the specified number of days
-python3 GenerateInputMap.py -n $1 -d $2
-python3 RandomSelectTestTrain.py -n $1 -d $2
-python3 CombineCSVs.py -n $1 -d $2
+python3 StripNumTransactions.py -d $2
+python3 GenerateInputMap.py -n $1 -d "$2_stripped"
+python3 RandomSelectTestTrain.py -n $1 -d "$2_stripped"
+python3 CombineCSVs.py -n $1 -d "$2_stripped"

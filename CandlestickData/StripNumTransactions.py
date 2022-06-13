@@ -18,6 +18,13 @@ if not os.path.exists(dir_to_strip):
 if not os.path.exists(dir_w_strip):
     os.mkdir(dir_w_strip)
 
+# Clean the stripped so we don't start mixing the files up
+old_list = os.listdir(dir_w_strip)
+print(f"Cleaning {dir_w_strip}...")
+for f in old_list:
+    os.remove(os.path.join(dir_w_strip, f))
+print(f"Cleaned {dir_w_strip} of any old files")
+
 file_list = os.listdir(dir_to_strip)
 
 for datafile in file_list:
@@ -30,6 +37,6 @@ for datafile in file_list:
         with open(full_stripname, 'w') as stripped_file:
             writer = csv.writer(stripped_file)
 
-            # Write everything except the number of transactions
+            # Write everything except the number of transactions (5)
             for r in reader:
                 writer.writerow((r[0], r[1], r[2], r[3], r[4], r[6], r[7]))

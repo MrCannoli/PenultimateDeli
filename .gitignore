@@ -1,6 +1,9 @@
 # Ignore data dump folder
 DataDeli/
 
+# Ignore folders in CuttingBoard
+CuttingBoard/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

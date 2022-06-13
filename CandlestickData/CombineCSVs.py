@@ -46,6 +46,12 @@ else:
     train_file_name = f"combined_train_recent_{recent_num_days}.csv"
     test_file_name = f"combined_recent_{recent_num_days}.csv"
 
+# Delete any old combined CSVs
+if(os.path.exists(os.path.join(top_dir, train_file_name))):
+    os.remove(os.path.join(top_dir, train_file_name))
+if(os.path.exists(os.path.join(top_dir, train_file_name))):
+    os.remove(os.path.join(top_dir, train_file_name))
+
 print(f"Writing all training data to {top_dir}/combined_train.csv")
 with open(f"{top_dir}/combined_train.csv", 'w', newline='') as combined_train_file:
     csvwriter = csv.writer(combined_train_file)

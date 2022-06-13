@@ -10,7 +10,7 @@ sorted_dir = "../CuttingBoard/filtered_data_6-10"
 
 # Params for filtering
 desired_vol_weighted_min = 3
-desired_vol_weighted_max = 100
+desired_vol_weighted_max = 30
 
 if(not os.path.exists(source_dir)):
     raise ValueError("Provided source dir couldn't be found!")

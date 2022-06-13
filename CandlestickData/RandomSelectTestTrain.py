@@ -37,6 +37,22 @@ if not os.path.exists(train_dir):
 if not os.path.exists(test_dir):
     os.mkdir(test_dir)
 
+# Clean the directories so we don't start mixing the files up
+old_list = os.listdir(train_dir)
+if len(old_list) != 0: # If there are files  in the directory, clean them
+    print(f"Cleaning {train_dir}...")
+    for f in old_list:
+        os.remove(os.path.join(train_dir, f))
+    print(f"Cleaned {train_dir} of any old files")
+
+old_list = os.listdir(test_dir)
+if len(old_list) != 0: # If there are files  in the directory, clean them
+    print(f"Cleaning {test_dir}...")
+    for f in old_list:
+        os.remove(os.path.join(test_dir, f))
+    print(f"Cleaned {test_dir} of any old files")
+
+
 file_list = [f for f in os.listdir(top_dir) if os.path.isfile(os.path.join(top_dir, f))]
 
 num_files = len(file_list)

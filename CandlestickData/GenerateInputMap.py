@@ -25,6 +25,22 @@ if not os.path.exists(f"../CuttingBoard/ParsedData/{base_folder}"):
 if not os.path.exists(new_dir):
     os.mkdir(new_dir)
 
+def recursive_clean(target_dir):
+    old_list = os.listdir(target_dir)
+    print(f"Cleaning {target_dir}...")
+    for f in old_list:
+        obj_path = os.path.join(target_dir, f)
+        if os.path.isdir(obj_path):
+            # Recursively clean subfolders
+            recursive_clean(obj_path)
+            os.rmdir(obj_path)
+        else:
+            # Delete the found file
+            os.remove(obj_path)
+    print(f"Cleaned {target_dir} of any old files")
+
+recursive_clean(new_dir)
+
 c=CandlestickRequest.CandleParser()
 file_list = os.listdir(original_dir)
 
