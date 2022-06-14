@@ -12,8 +12,8 @@ input_num_days = 2
 test_basename = f"Test_{input_num_days}_days"
 
 model_filepath_base = f'GeneratedModels/{test_basename}/'
-train_file = f'../CuttingBoard/ParsedData/filtered_data_6-10_stripped/{input_num_days}_days/combined_train.csv'
-test_file = f'../CuttingBoard/ParsedData/filtered_data_6-10_stripped/{input_num_days}_days/combined_test.csv'
+train_file = f'../CuttingBoard/ParsedData/Data_6-5-2020-2022_stripped_good/{input_num_days}_days/combined_train.csv'
+test_file = f'../CuttingBoard/ParsedData/Data_6-5-2020-2022_stripped_good/{input_num_days}_days/combined_test.csv'
 
 if not os.path.exists(model_filepath_base):
     os.mkdir(model_filepath_base)
@@ -34,6 +34,7 @@ eval_list = [(dtest, 'eval'), (dtrain, 'train')]
 model_params = {'max_depth':24, 'eta':.3, 'objective':"reg:squarederror", 'nthread': 6, 'tree_method': 'gpu_hist', 'eval_metric':'mape',
                 'lambda': 1, 'alpha': 0, 'grow_policy': 'depthwise', 'num_parallel_tree': 1, 'max_bin': 2048, 'seed': rand_seed}
 # Potential objective values: reg:squarederror, reg:squaredlogerror
+# If not running on a system with a GPU, change `tree_method` to `hist`
 # Could update the 'eval_metric' as needed - though mean absolute percentage error has best results from testing
 # Could remove 'nthread' to allow this to use all cores/threads
 # Additional interesting parameters: lambda, alpha, gamma

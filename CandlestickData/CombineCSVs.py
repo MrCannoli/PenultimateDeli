@@ -6,7 +6,7 @@ import argparse
 
 # Parse command line inputs to get the target number of days
 parser = argparse.ArgumentParser()
-parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
+parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of days data used')
 parser.add_argument('-r', '--recent_num_days', type=int, default=0, dest='recent_num_days', help='Pull the most recent number of days data to combine')
 parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
 args = parser.parse_args()
@@ -27,6 +27,19 @@ if not os.path.exists(train_dir) or not os.path.exists(test_dir):
 train_file_list = os.listdir(train_dir)
 test_file_list = os.listdir(test_dir)
 
+if(args.recent_num_days == 0):
+    train_file_name = "combined_train.csv"
+    test_file_name = "combined_test.csv"
+else:
+    train_file_name = f"combined_train_recent_{recent_num_days}.csv"
+    test_file_name = f"combined_test_recent_{recent_num_days}.csv"
+
+# Delete any old combined CSVs
+if(os.path.exists(os.path.join(top_dir, train_file_name))):
+    os.remove(os.path.join(top_dir, train_file_name))
+if(os.path.exists(os.path.join(top_dir, train_file_name))):
+    os.remove(os.path.join(top_dir, train_file_name))
+
 print("Start combining all files in the train directory")
 combined_train_list = []
 for file in train_file_list:
@@ -39,21 +52,8 @@ for file in train_file_list:
         for sublist in file_data:
             combined_train_list.append(sublist)
 
-if(args.recent_num_days == 0):
-    train_file_name = "combined_train_full.csv"
-    test_file_name = "combined_test_full.csv"
-else:
-    train_file_name = f"combined_train_recent_{recent_num_days}.csv"
-    test_file_name = f"combined_recent_{recent_num_days}.csv"
-
-# Delete any old combined CSVs
-if(os.path.exists(os.path.join(top_dir, train_file_name))):
-    os.remove(os.path.join(top_dir, train_file_name))
-if(os.path.exists(os.path.join(top_dir, train_file_name))):
-    os.remove(os.path.join(top_dir, train_file_name))
-
 print(f"Writing all training data to {top_dir}/combined_train.csv")
-with open(f"{top_dir}/combined_train.csv", 'w', newline='') as combined_train_file:
+with open(f"{top_dir}/{train_file_name}", 'w', newline='') as combined_train_file:
     csvwriter = csv.writer(combined_train_file)
     csvwriter.writerows(combined_train_list)
 
@@ -68,6 +68,6 @@ for file in test_file_list:
             combined_test_list.append(sublist)
 
 print(f"Writing all test data to {top_dir}/combined_test.csv")
-with open(f"{top_dir}/combined_test.csv", 'w', newline='') as combined_test_file:
+with open(f"{top_dir}/{test_file_name}", 'w', newline='') as combined_test_file:
     csvwriter = csv.writer(combined_test_file)
     csvwriter.writerows(combined_test_list)

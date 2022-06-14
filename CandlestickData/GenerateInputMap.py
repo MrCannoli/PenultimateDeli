@@ -5,7 +5,7 @@ import argparse
 
 # Parse command line inputs to get the target number of days
 parser = argparse.ArgumentParser()
-parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
+parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of recent days data used')
 parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
 args = parser.parse_args()
 num_days = args.num_days
