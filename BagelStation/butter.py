@@ -6,20 +6,23 @@ import os
 import random
 
 # Number of past days data used in the input files
-input_num_days = 2
+input_num_days = 3
+
+base_folder = "All_Data_6-10_stripped"
 
 # Base name for the test. Used to generate file names.
 test_basename = f"Test_{input_num_days}_days"
 
 model_filepath_base = f'GeneratedModels/{test_basename}/'
-train_file = f'../CuttingBoard/ParsedData/Data_6-5-2020-2022_stripped_good/{input_num_days}_days/combined_train.csv'
-test_file = f'../CuttingBoard/ParsedData/Data_6-5-2020-2022_stripped_good/{input_num_days}_days/combined_test.csv'
+train_file = f'../CuttingBoard/ParsedData/{base_folder}/{input_num_days}_days/combined_train.csv'
+test_file = f'../CuttingBoard/ParsedData/{base_folder}/{input_num_days}_days/combined_test.csv'
 
 if not os.path.exists(model_filepath_base):
     os.mkdir(model_filepath_base)
 
-rand_seed = random.randint(0,1000000)
-print(f"Seed is {rand_seed}")
+# Seed doesn't seem to have any impact. Disabling for now.
+#rand_seed = random.randint(0,1000000)
+#print(f"Seed is {rand_seed}")
 
 # Import training data file
 # Docs recommended to use sklearn's load_svmlight_file instead
@@ -31,8 +34,8 @@ dtest = xgb.DMatrix(test_file)
 
 eval_list = [(dtest, 'eval'), (dtrain, 'train')]
 
-model_params = {'max_depth':24, 'eta':.3, 'objective':"reg:squarederror", 'nthread': 6, 'tree_method': 'gpu_hist', 'eval_metric':'mape',
-                'lambda': 1, 'alpha': 0, 'grow_policy': 'depthwise', 'num_parallel_tree': 1, 'max_bin': 2048, 'seed': rand_seed}
+model_params = {'max_depth':5, 'eta':.3, 'objective':"binary:logistic", 'nthread': 6, 'tree_method': 'gpu_hist', 'eval_metric':'error',
+                'lambda': 1, 'alpha': 0, 'grow_policy': 'depthwise', 'num_parallel_tree': 1, 'max_bin': 2048}
 # Potential objective values: reg:squarederror, reg:squaredlogerror
 # If not running on a system with a GPU, change `tree_method` to `hist`
 # Could update the 'eval_metric' as needed - though mean absolute percentage error has best results from testing
@@ -42,7 +45,7 @@ model_params = {'max_depth':24, 'eta':.3, 'objective':"reg:squarederror", 'nthre
 # Can increase trees used with `num_parallel_tree` (default 1). Seems to improve learning rate, but greatly increases computation time - net zero benefit.
 # Can read up on params here: https://xgboost.readthedocs.io/en/stable/parameter.html
 
-num_rounds = 2000
+num_rounds = 2100
 
 # Train the model with the given data and inputs
 bst = xgb.train(model_params, dtrain, num_rounds, eval_list)
@@ -59,6 +62,7 @@ print(preds)
 
 bst.save_model(f'{model_filepath_base}{test_basename}.model')
 
+'''
 # dump model with feature map
 raw_model_dumpfile = f'{model_filepath_base}{test_basename}_raw.txt'
 raw_model_featmap = f'{model_filepath_base}{test_basename}_featmap.txt'
@@ -76,3 +80,4 @@ if not os.path.exists(raw_model_featmap):
         pass
 
 bst.dump_model(raw_model_dumpfile, raw_model_featmap)
+'''

@@ -7,9 +7,11 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of recent days data used')
 parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
+parser.add_argument('-s', '--setpoints', type=float, default=None, dest='setpoints', nargs='*', help='Binary setpoints to compare the high value of a day against the opening value of the day.' )
 args = parser.parse_args()
 num_days = args.num_days
 base_folder = args.data_dir
+setpoints = args.setpoints
 
 if num_days == 0:
     raise ValueError("Need to supply number of days data the file is using! Use -n to specify.")
@@ -49,6 +51,9 @@ print(f"Starting parsing for {len(file_list)} files")
 for data_file in file_list:
     og_filepath = f"{original_dir}/{data_file}"
     new_filepath = f"{new_dir}/{data_file}_LIBSVM.csv"
-    c.generate_input_map(og_filepath, new_filepath, num_days)
+    if(setpoints != None):
+        c.generate_input_map(og_filepath, new_filepath, num_days, use_binary_setpoints=True, binary_setpoints=setpoints)
+    else:
+        c.generate_input_map(og_filepath, new_filepath, num_days, use_binary_setpoints=False)
 
 print(CandlestickRequest.bcolors.OKGREEN + "Finished parsing data into unique LIBSVM formatted files" + CandlestickRequest.bcolors.ENDC)

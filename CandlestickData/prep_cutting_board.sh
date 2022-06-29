@@ -6,10 +6,43 @@
 
 # First input is the number of days' data you want the scripts to generate data for
 # Second is the directory base folder name in the cutting board
-echo "Configuring data for " $1 " days' worth from ../CuttingBoard/" $2
+# Third input is a seed for rand. If not provided, a random seed is used.
+# Fourth input is a boolean denoting whether to strip transactions or not
+# All inputs past the 4th is a list of percentage values to use as binary setpoints
+
+# Example use call:
+# ./prep_cutting_board.sh 2 "All_Data_6-10" 12345 1 0.01 0.008 0.005
+
+echo "Configuring data for " $1 " days' worth from ../CuttingBoard/$2" 
+
+DIR_NAME="$2"
 
 # Configure the raw data for the specified number of days
-python3 StripNumTransactions.py -d $2
-python3 GenerateInputMap.py -n $1 -d "$2_stripped"
-python3 RandomSelectTestTrain.py -n $1 -d "$2_stripped"
-python3 CombineCSVs.py -n $1 -d "$2_stripped"
+if [ $4 == 1 ]
+then
+python3 StripNumTransactions.py -d $2  # This step may not be necessary?
+DIR_NAME="$2_stripped"
+echo "Using stripped files in $DIR_NAME"
+else
+echo "Using raw files for data"
+fi
+
+if [ -z "$5" ]
+then
+    python3 GenerateInputMap.py -n $1 -d $DIR_NAME
+else
+    # Use setpoints from input 5 onwards
+    python3 GenerateInputMap.py -n $1 -d $DIR_NAME -s ${@: 5}
+fi
+
+# Check if a seed was provided
+if [ -z "$3" ]
+then
+    echo "Using randomized list"
+    python3 RandomSelectTestTrain.py -n $1 -d $DIR_NAME
+else
+    echo "Selecting with random seed $3"
+    python3 RandomSelectTestTrain.py -n $1 -s $3 -d $DIR_NAME 
+fi
+
+python3 CombineCSVs.py -n $1 -d $DIR_NAME

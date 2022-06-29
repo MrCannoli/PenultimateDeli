@@ -37,6 +37,6 @@ for datafile in file_list:
         with open(full_stripname, 'w') as stripped_file:
             writer = csv.writer(stripped_file)
 
-            # Write everything except the number of transactions (5)
+            # Write everything except the number of transactions (5) and trade volume (6)
             for r in reader:
-                writer.writerow((r[0], r[1], r[2], r[3], r[4], r[6], r[7]))
+                writer.writerow((r[0], r[1], r[2], r[3], r[4], r[7]))

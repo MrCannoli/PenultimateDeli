@@ -7,14 +7,21 @@ import argparse
 
 # Parse command line inputs to get the target number of days
 parser = argparse.ArgumentParser()
-parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of random stocks to pull from the ticker file')
+parser.add_argument('-n', '--num_days', type=int, default=0, dest='num_days', help='Number of days stocks to pull from the ticker file')
 parser.add_argument('-d', '--data_dir', type=str, default=None, dest='data_dir', help='Directory base folder name. Not a full path.')
+parser.add_argument('-s', '--seed', type=int, default=None, dest='random_seed', help='Seed for selecting random data. Provide a consistent seed to get consistent data sets.')
 args = parser.parse_args()
 num_days = args.num_days
 base_folder = args.data_dir
+seed = args.random_seed
 
 if num_days == 0:
     raise ValueError("Need to supply number of days data the file is using! Use -n to specify.")
+
+# If provided a non-random seed, use it
+if seed != None:
+    print(f"using seed {seed}")
+    random.seed(seed)
 
 # Percentage of files that should be used for training
 train_percent = 0.90
@@ -59,6 +66,7 @@ num_files = len(file_list)
 num_train_files = math.floor(num_files * train_percent)
 
 # Shuffle the file list randomly - makes random selection of chunks easy
+a = random.random()
 random.shuffle(file_list)
 
 train_list = file_list[0:num_train_files]

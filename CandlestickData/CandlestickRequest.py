@@ -190,7 +190,7 @@ class CandleParser:
     # Rearrange the raw input data (from the source_filepath) into a format that is usable by the AI
     # In particular, map the specified last few days' data into a digestable row
     # This follows LIBSVM format: https://catboost.ai/en/docs/concepts/input-data_libsvm
-    def generate_input_map(self, source_filepath, parsed_data_filepath, num_days):
+    def generate_input_map(self, source_filepath, parsed_data_filepath, num_days, use_binary_setpoints=False, binary_setpoints=[0]):
         formatted_list = []
         with open(source_filepath, 'r', newline='') as source_file:
             source_reader = csv.reader(source_file)
@@ -198,16 +198,48 @@ class CandleParser:
 
             # Start at index num_days + 1 to go past the header
             for i in range(1+num_days, len(source_list)):
-                sublist = []
-                # First value needs to be the "label" value - in our case, this is the high price for present day
-                # The list selection may seem odd, but just doing [2] results in the value getting chopped up after each number
-                sublist.extend(source_list[i][2:3])
-                # First input is the open price of the present day
-                sublist.extend(source_list[i][1:2])
-                for j in range(1, num_days+1):
-                    # Include each row of inputs starting at most recent day first
-                    sublist.extend(source_list[i-j][1:]) # start at 1 to skip the timestamp
-                formatted_list.append(sublist)
+                for setpoint in binary_setpoints:
+                    sublist = []
+
+                    # First value needs to be the "label" value - Choice of which depends on whether this is a binary check or not
+                    if use_binary_setpoints:
+                        # First value is a binary representation of whether the high value is greater than the open value times the setpoint
+                        # E.g. If high value for day is 5, open is 4.98, setpoint is 0.01, then this would return a 0.
+                        # Check if the difference is past the setpoint.
+                        # The list selection may seem odd, but just doing [2] results in the value getting chopped up after each number
+                        if((float(source_list[i][2]) - (float(source_list[i][1]) * (setpoint + 1))) > 0):
+                            sublist.extend(['1'])
+                        else:
+                            sublist.extend(['0'])
+                        # Add the setpoint value we are using
+                        #sublist.extend([str(setpoint)])
+                    else:
+                        # Label value is the high price of the day
+                        sublist.extend(source_list[i][2:3])
+                    
+                    # First input is the open price of the present day
+                    sublist.extend(source_list[i][1:2])
+
+                    '''
+                    # Add the difference between the present and last timestamp in units of days
+                    num_days_since_last_data = (int(source_list[i][0]) - int(source_list[i-1][0])) / 86400000 # num ms in day
+                    sublist.extend([str(num_days_since_last_data)])'''
+
+                    for j in range(1, num_days+1):
+                        '''
+                        if(j < num_days:
+                            if((i-j-1) == 0):
+                                # We are reading back earlier than the start of the data set. Assume 1 day has past.
+                                sublist.extend(['1'])
+                            else:
+                                # Add the difference between the present and last timestamp in units of days
+                                num_days_since_last_data = (int(source_list[i-j][0]) - int(source_list[i-j-1][0])) / 86400000 # num ms in day
+                                sublist.extend([str(num_days_since_last_data)])'''
+
+                        # Include each row of inputs starting at most recent day first
+                        sublist.extend(source_list[i-j][1:]) # start at 1 to skip the timestamp
+
+                    formatted_list.append(sublist)
         
         # Update the list with input labels
         for sublist in formatted_list:
@@ -228,6 +260,9 @@ if __name__ == '__main__':
     end_date = str(present_date)[0:10]
     start_date = end_date.replace('2022', '2020')
 
+    # Default time scale to request is days. Can be updated to hours or minutes.
+    timescale = 'day'
+
     # Default ticker list includes 1 more stock than we can request in one minute to test the request delay feature
     ticker_list = ['AAPL', 'GOOGL', 'ABC', 'MORT', 'NFLX', 'AMC']
 
@@ -242,6 +277,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--ticker_file', type=str, nargs=1, default=None, dest='ticker_file', help='File with tickers')
     parser.add_argument('-n', '--num_rand_stocks', type=int, default=0, dest='num_rand_stocks', help='Number of random stocks to pull from the ticker file')
     parser.add_argument('-o', '--ordered_read', type=int, nargs=1, default=0, dest='ordered_read', help='Command an ordered read. 0 = unordered, 1 = alphabetical order, 2 = reverse alphabetical')
+    parser.add_argument('--timescale', type=str, nargs=1, default=None, dest='timescale', help='Timescale of data requests. Should be day, hour, or minute.')
 
     args = parser.parse_args()
     if(args.start_date is not None and args.end_date is not None):
@@ -249,6 +285,9 @@ if __name__ == '__main__':
         end_date = args.end_date[0]
     ticker_file = args.ticker_file[0]
     num_rand_stocks = args.num_rand_stocks
+    print(args.timescale)
+    if(args.timescale[0] is not None):
+        timescale = args.timescale[0]
 
     # Create the object to handle our request
     candle = CandlestickRequest()
@@ -293,7 +332,7 @@ if __name__ == '__main__':
         candle.wait_for_next_req_time()
 
         # Get the data
-        result=candle.make_ticker_request(ticker, start_date, end_date)
+        result=candle.make_ticker_request(ticker, start_date, end_date, time_range=timescale)
         
         if result is not None:
             try:
