@@ -35,13 +35,13 @@ dtest = xgb.DMatrix(test_file)
 eval_list = [(dtest, 'eval'), (dtrain, 'train')]
 
 model_params = {'max_depth':5, 'eta':.3, 'objective':"binary:logistic", 'nthread': 6, 'tree_method': 'gpu_hist', 'eval_metric':'error',
-                'lambda': 1, 'alpha': 0, 'grow_policy': 'depthwise', 'num_parallel_tree': 1, 'max_bin': 2048}
+                'lambda': 1, 'alpha': 0, 'grow_policy': 'depthwise', 'num_parallel_tree': 1, 'max_bin': 4096}
 # Potential objective values: reg:squarederror, reg:squaredlogerror
 # If not running on a system with a GPU, change `tree_method` to `hist`
-# Could update the 'eval_metric' as needed - though mean absolute percentage error has best results from testing
+# Could update the 'eval_metric' as needed - though mean absolute percentage error has best results for high value guessing, and error is best for binary classification
 # Could remove 'nthread' to allow this to use all cores/threads
 # Additional interesting parameters: lambda, alpha, gamma
-# Max bin is the default 256 - Increasing this has shown general improvement
+# Max bin is default 256 - Increasing this has shown general improvement
 # Can increase trees used with `num_parallel_tree` (default 1). Seems to improve learning rate, but greatly increases computation time - net zero benefit.
 # Can read up on params here: https://xgboost.readthedocs.io/en/stable/parameter.html
 
@@ -60,12 +60,20 @@ print("Predictions: ")
 print(preds)
 '''
 
-bst.save_model(f'{model_filepath_base}{test_basename}.model')
+model_path = f'{model_filepath_base}{test_basename}.model'
+
+# If a previous model exists, delete it
+if os.path.exists(model_path):
+    os.remove(model_path)
+
+# Save the model
+bst.save_model(model_path)
 
 '''
 # dump model with feature map
 raw_model_dumpfile = f'{model_filepath_base}{test_basename}_raw.txt'
 raw_model_featmap = f'{model_filepath_base}{test_basename}_featmap.txt'
+
 
 # Need to create the raw files if they don't already exist
 # Otherwise XGBoost complains

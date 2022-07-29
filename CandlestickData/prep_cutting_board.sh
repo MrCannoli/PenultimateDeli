@@ -4,10 +4,10 @@
 # Simple script to automate generating and moving input data for a specified number of days
 # Note using this requires that the folder pointers used in the scripts all point to the correct location
 
-# First input is the number of days' data you want the scripts to generate data for
-# Second is the directory base folder name in the cutting board
-# Third input is a seed for rand. If not provided, a random seed is used.
-# Fourth input is a boolean denoting whether to strip transactions or not
+# $1 is the number of days' data you want the scripts to generate data for
+# $2 is the directory base folder name in the cutting board
+# $3 is a seed for rand. If not provided, a random seed is used.
+# $4 is a boolean denoting whether to strip transactions or not
 # All inputs past the 4th is a list of percentage values to use as binary setpoints
 
 # Example use call:
@@ -20,7 +20,7 @@ DIR_NAME="$2"
 # Configure the raw data for the specified number of days
 if [ $4 == 1 ]
 then
-python3 StripNumTransactions.py -d $2  # This step may not be necessary?
+#python3 StripNumTransactions.py -d $2  # This step may not be necessary?
 DIR_NAME="$2_stripped"
 echo "Using stripped files in $DIR_NAME"
 else

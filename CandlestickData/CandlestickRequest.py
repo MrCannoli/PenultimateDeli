@@ -187,6 +187,20 @@ class CandlestickRequest:
             return out_stock_list
 
 class CandleParser:
+    MS_PER_DAY = 86400000
+    MS_PER_HOUR = 3600000
+
+    # Get the day value of a given timestamp
+    def get_day(timestamp_ms):
+        date_rep = datetime.datetime.fromtimestamp(timestamp_ms/1000)
+        return date_rep.strftime("%d")
+
+    
+    # Get the year-month-day string of a given timestamp
+    def get_ymd(self,timestamp_ms):
+        date_rep = datetime.datetime.fromtimestamp(timestamp_ms/1000)
+        return date_rep.strftime("%y%m%d")
+
     # Rearrange the raw input data (from the source_filepath) into a format that is usable by the AI
     # In particular, map the specified last few days' data into a digestable row
     # This follows LIBSVM format: https://catboost.ai/en/docs/concepts/input-data_libsvm
@@ -200,13 +214,13 @@ class CandleParser:
             for i in range(1+num_days, len(source_list)):
                 for setpoint in binary_setpoints:
                     sublist = []
+                    simlist = []
 
                     # First value needs to be the "label" value - Choice of which depends on whether this is a binary check or not
                     if use_binary_setpoints:
                         # First value is a binary representation of whether the high value is greater than the open value times the setpoint
                         # E.g. If high value for day is 5, open is 4.98, setpoint is 0.01, then this would return a 0.
                         # Check if the difference is past the setpoint.
-                        # The list selection may seem odd, but just doing [2] results in the value getting chopped up after each number
                         if((float(source_list[i][2]) - (float(source_list[i][1]) * (setpoint + 1))) > 0):
                             sublist.extend(['1'])
                         else:
@@ -254,6 +268,326 @@ class CandleParser:
             csvwriter.writerows(formatted_list)
 
 
+    # Generate simulator data from hourly inputs on stock data
+    # Output format: year-month-date string, setpoint value, sell point representation
+    # Sell point is -1 for sold at low price, 0 for close price, +1 for high price 
+    def generate_sim_from_hourly(self, source_filepath, sim_filepath, binary_setpoints=[0.005], low_sell_method="proportional"):
+        formatted_simlist = []
+
+        with open(source_filepath, 'r', newline='') as source_file:
+            source_reader=csv.reader(source_file)
+            source_list = list(source_reader)
+
+            # Skip the first day as we read as we aren't guaranteed to have the first hourly read of the day
+            day = self.get_day(int(source_list[i][0]))
+            while(self.get_day(int(source_list[i][0])) == day):
+                i = i + 1
+
+            # Now move on to create the sim list from the file
+            while(i < len(source_list)):
+                for setpoint in binary_setpoints:
+                    simlist = []
+                    # First thing to write is the date-time representation
+                    simlist.extend(self.get_ymd(int(source_list[i][0])))
+
+                    # Write the setpoint value
+                    simlist.extend(str(setpoint))
+
+                    # Starting open price of the day
+                    open_price = float(source_list[i][1:2])
+                    # Determine the sell prices based on the setpoint
+                    high_sell_price = open_price * (1 + setpoint)
+                    # This division is so that the loss is relative; a 50% loss is not recouped by a 50% gain the following day
+                    # However with the division, an equal gain the following day would recoup all money lost
+                    low_sell_price = open_price * (1 / (1 + setpoint))
+
+                    if(low_sell_method == "raw"): 
+                        low_sell_price = open_price * (1 - setpoint)
+
+                    #simlist.extend(source_list[i][1:2])
+                    # Second is the close price of the day
+                    # This is stubbed with a bad value, it is replaced later
+                    #simlist.extend([None])
+
+                    # Search through the end of the present day to see if we hit the high or low sell price first. If neither, use the close price.
+                    # Sell point represents the value we sold at: -1 = sold at low, 0 = sold at close, 1 = sold at high
+                    present_day = self.get_day(int(source_list[i][0]))
+                    sell_point = 0
+                    while(self.get_day(int(source_list[i][0])) == present_day):
+                        high_price = float(source_list[i][2])
+                        low_price = float(source_list[i][3])
+                        if((high_price > high_sell_price) and (low_price < low_sell_price)):
+                            # Market was too volatile in the hour for us to know which it sold at
+                            # Continue to the next data point to make a check
+                            pass
+                        elif(high_price > high_sell_price):
+                            sell_point = 1
+                            break
+                        elif(low_price < low_sell_price):
+                            sell_point = -1
+                            break
+
+                        i = i + 1
+                        if (i >= len(source_list)):
+                            # reached the end of the list. Break to prevent errors
+                            break
+                    
+                    # Write the sellpoint value representation
+                    simlist.extend(str(sell_point))
+                    # Append the day's list to the full list
+                    formatted_simlist.append(simlist)
+
+        # Write the sim data to the new file
+        with open(sim_filepath,'w', newline='') as sim_file:
+            print(f"Writing simulator data to {sim_filepath}")
+            csvwriter = csv.writer(sim_file, delimiter=' ')
+            csvwriter.writerows(formatted_simlist)
+
+    # Generate simulator data from hourly inputs on stock data
+    # Output format: year-month-date string, setpoint value, open price, sell price, sell point representation
+    def generate_sim_from_daily(self, source_filepath, sim_filepath, binary_setpoints=[0.005], low_sell_method="proportional", ambiguity_eval_method = "close_estimate"):
+        formatted_simlist = []
+
+        with open(source_filepath, 'r', newline='') as source_file:
+            source_reader=csv.reader(source_file)
+            source_list = list(source_reader)
+
+            # Now move on to create the sim list from the file
+            for setpoint in binary_setpoints:
+                i = 1
+                while(i < len(source_list)):
+                    simlist = []
+
+
+                    # Starting open price of the day
+                    open_price = float(source_list[i][1])
+
+                    # Determine the sell prices based on the setpoint
+                    high_sell_price = open_price * (1 + setpoint)
+                    # This division is so that the loss is relative; a 50% loss is not recouped by a 50% gain the following day
+                    # However with the division, an equal gain the following day would recoup all money lost
+                    # This method is equivalent to low_sell_method = "proportional", but really is the default case
+                    low_sell_price = open_price * (1 / (1 + setpoint))
+
+                    if(low_sell_method == "raw"): 
+                        low_sell_price = open_price * (1 - setpoint)
+
+                    # Search through the end of the present day to see if we hit the high or low sell price first. If neither, use the close price.
+                    # Sell point represents the value we sold at: -1 = sold at low, 0 = sold at close, 1 = sold at high
+                    sell_point = 0
+                    high_price = float(source_list[i][2])
+                    low_price = float(source_list[i][3])
+                    close_price = float(source_list[i][4])
+                    if((high_price > high_sell_price) and (low_price < low_sell_price)):
+                        # Market was too volatile in the hour for us to know which it sold at for sure
+                        if ambiguity_eval_method == "close_estimate":
+                            if close_price < open_price:
+                                # Ended lower - assume high price was hit early on in the day
+                                sell_price = high_price
+                            else:
+                                # Ended higher - assume low price was hit early on in the day
+                                sell_price = low_price
+                        else:
+                            # Skip method - set sell price to open price
+                            sell_price = open_price
+                        sell_point = 0
+                    elif(high_price > high_sell_price):
+                        sell_price = high_price
+                        sell_point = 1
+                    elif(low_price < low_sell_price):
+                        sell_price = low_price
+                        sell_point = 2
+                    else:
+                        sell_price = close_price
+                        sell_point = 3
+                    
+                    # First thing to write is the date-time representation
+                    simlist.extend([self.get_ymd(int(source_list[i][0]))])
+                    # Write the setpoint value
+                    simlist.extend([setpoint])
+                    # Write open value
+                    simlist.extend([open_price])
+                    # Write the sell value
+                    simlist.extend([sell_price])
+                    # Write the representation of the sellpoint for analysis
+                    simlist.extend([sell_point])
+                    # Append the day's list to the full list
+                    formatted_simlist.append(simlist)
+
+                    i = i + 1
+
+        # Write the sim data to the new file
+        with open(sim_filepath,'w', newline='') as sim_file:
+            print(f"Writing simulator data to {sim_filepath}")
+            csvwriter = csv.writer(sim_file, delimiter=' ')
+            csvwriter.writerows(formatted_simlist)
+
+
+    # Determine the percentage with highs, lows, and highs and lows above/below setpoints for daily data
+    def calculate_high_low_percentages(self, source_filepath, binary_setpoints=[0.005]):
+        with open(source_filepath, 'r', newline='') as source_file:
+            source_reader = csv.reader(source_file)
+            source_list = list(source_reader)
+
+            high_count = 0
+            low_count = 0
+            hl_count = 0
+            close_count = 0
+
+            i = 1
+            for setpoint in binary_setpoints:
+                while(i < len(source_list)):
+                    # Starting open price of the day
+                    open_price = float(source_list[i][1])
+                    # Determine the sell prices based on the setpoint
+                    high_sell_price = open_price * (1 + setpoint)
+                    low_sell_price = open_price * (1 / (1 + setpoint))
+
+                    high_price = float(source_list[i][2])
+                    low_price = float(source_list[i][3])
+
+                    high_benchmark_met = (high_price > high_sell_price)
+                    low_benchmark_met = (low_price < low_sell_price)
+
+                    if  high_benchmark_met and not low_benchmark_met:
+                        high_count += 1
+                    elif low_benchmark_met and not high_benchmark_met:
+                        low_count += 1
+                    elif low_benchmark_met and high_benchmark_met:
+                        hl_count += 1
+                    else:
+                        close_count += 1
+                    i+=1
+                
+                print(f"Stats for setpoint value {setpoint}")
+                print(f"Days with price above high, but not low: {high_count}")
+                print(f"Days with price below low, but not high: {low_count}")
+                print(f"Days with price below low AND above high: {hl_count}")
+                print(f"Days with price never reaching setpoint: {close_count}")
+
+
+
+    #!!!!!!! This version does not work very well due to issues with polygon's hourly data !!!!!!!
+    # Rearrange the raw input data (from the source_filepath) into a format that is usable by the AI
+    # In particular, map the specified last few days' data into a digestable row
+    # This follows LIBSVM format: https://catboost.ai/en/docs/concepts/input-data_libsvm
+    # This differs from the last function by handling hourly data, only working for binary setpoints, and generating sim files for later testing
+    def generate_binary_map_and_sim(self, source_filepath, parsed_data_filepath, sim_filepath, num_days, timescale='day', binary_setpoints=[0.005]):
+        formatted_ailist = []
+        formatted_simlist = []
+        with open(source_filepath, 'r', newline='') as source_file:
+            source_reader = csv.reader(source_file)
+            source_list = list(source_reader)
+
+            # Start at index num_days + 1 to go past the header
+            i = 1
+            try:
+                for _ in range(num_days + 1):
+                    # Skip rows until we get to the desired start day
+                    # Skip an extra day for safety
+                    day = self.get_day(int(source_list[i][0]))
+                    while(self.get_day(int(source_list[i][0])) == day):
+                        i = i + 1
+            except IndexError:
+                print(f"File {source_filepath} does not have enough data to use!")
+                return
+
+            while(i < len(source_list)):
+                for setpoint in binary_setpoints:
+                    ailist = [] # Data list for training the AI
+                    simlist = [] # Data list for running the trained AI against a simulator
+
+                    # First value is a binary representation of whether the high value is greater than the open value times the setpoint
+                    # E.g. If high value for day is 5, open is 4.98, setpoint is 0.01, then this would return a 0.
+                    # Fill it with a stubbed bad value - this will be filled in later
+                    ailist.extend([None])
+                    
+                    # Add the setpoint value we are using
+                    ailist.extend([str(setpoint)])
+
+                    open_price = float(source_list[i][1])
+                    
+                    # First input is the open price of the present day
+                    ailist.extend(source_list[i][1:2])
+
+                    # Generate the simlist
+                    # First value of the simlist is the open price of the present day
+                    simlist.extend(source_list[i][1:2])
+                    # Second is the close price of the day
+                    # This is stubbed with a bad value, it is replaced later
+                    simlist.extend([None])
+
+                    '''
+                    # Add the difference between the present and last timestamp in units of days
+                    num_days_since_last_data = (int(source_list[i][0]) - int(source_list[i-1][0])) / 86400000 # num ms in day
+                    ailist.extend([str(num_days_since_last_data)])'''
+
+                    # Create an offset value to index back from i
+                    offset = 1
+                    # Collate data from the whole day onto the list
+                    for _ in range(num_days):
+                        prev_day = self.get_day(int(source_list[i - offset][0]))
+                        while((i != offset) and (self.get_day(int(source_list[i - offset][0])) == prev_day)):
+                            ailist.extend(source_list[i - offset][1:]) # start at 1 to skip the timestamp
+                            simlist.extend(source_list[i - offset][2:4]) # Add the high and low price to the test list
+                            offset = offset + 1
+
+                    present_day = self.get_day(int(source_list[i][0]))
+                    # Search for the end of the present day to get the closing price
+                    # In the mean time, find the highest price throughout the day
+                    high_price = 0
+                    while(self.get_day(int(source_list[i][0])) == present_day):
+                        if(float(source_list[i][2]) > high_price):
+                            high_price = float(source_list[i][2])
+                        i = i + 1
+                        if(i >= len(source_list)):
+                            # reached the end of the list. Break to prevent errors
+                            break
+                    
+                    # Check if the highest price of the day was above the setpoint
+                    if((high_price - (open_price * (setpoint + 1))) > 0):
+                        ailist[0] = '1'
+                    else:
+                        ailist[0] = '0'
+                        
+                    
+                    # Add the closing price for the day
+                    ailist.extend(source_list[i-1][4:5])
+                    # Update the simlist to have the correct closing price
+                    simlist[1] = source_list[i-1][4]
+                    '''
+                    if(j < num_days:
+                        if((i-j-1) == 0):
+                            # We are reading back earlier than the start of the data set. Assume 1 day has past.
+                            ailist.extend(['1'])
+                        else:
+                            # Add the difference between the present and last timestamp in units of days
+                            num_days_since_last_data = (int(source_list[i-j][0]) - int(source_list[i-j-1][0])) / 86400000 # num ms in day
+                            ailist.extend([str(num_days_since_last_data)])'''
+
+                    # Add the collated lists as new rows to the two full lists
+                    formatted_ailist.append(ailist)
+                    formatted_simlist.append(simlist)
+        
+        # Update the ailist with input labels
+        for ailist in formatted_ailist:
+            for i in range(1, len(ailist)):
+                ailist[i] = f"{i}:{ailist[i]}"
+
+
+        # Write the parsed data to a new file at the specified location
+        with open(parsed_data_filepath,'w', newline='') as parsed_data_file:
+            print(f"Writing LIBSVM formatted data to {parsed_data_filepath}")
+            csvwriter = csv.writer(parsed_data_file, delimiter=' ')
+            csvwriter.writerows(formatted_ailist)
+        
+        # Write the sim data to the new file
+        with open(sim_filepath,'w', newline='') as sim_file:
+            print(f"Writing simulator data to {sim_filepath}")
+            csvwriter = csv.writer(sim_file, delimiter=' ')
+            csvwriter.writerows(formatted_simlist)
+
+
 if __name__ == '__main__':
     # Default end date is present day, start date is two years prior 
     present_date = datetime.datetime.now()
@@ -291,8 +625,6 @@ if __name__ == '__main__':
 
     # Create the object to handle our request
     candle = CandlestickRequest()
-
-    print(f'da arg is {args.ordered_read[0]}')
     
     if not os.path.exists('../CuttingBoard/RawData'):
         os.mkdir('../CuttingBoard/RawData')
