@@ -6,9 +6,9 @@ import os
 import random
 
 # Number of past days data used in the input files
-input_num_days = 3
+input_num_days = 2
 
-base_folder = "All_Data_6-10_stripped"
+base_folder = "all_data_6-10_stripped"
 
 # Base name for the test. Used to generate file names.
 test_basename = f"Test_{input_num_days}_days"
@@ -34,7 +34,7 @@ dtest = xgb.DMatrix(test_file)
 
 eval_list = [(dtest, 'eval'), (dtrain, 'train')]
 
-model_params = {'max_depth':5, 'eta':.3, 'objective':"binary:logistic", 'nthread': 6, 'tree_method': 'gpu_hist', 'eval_metric':'error',
+model_params = {'max_depth':5, 'eta':.3, 'objective':"binary:logistic", 'nthread': 6, 'tree_method': 'hist', 'eval_metric':'error',
                 'lambda': 1, 'alpha': 0, 'grow_policy': 'depthwise', 'num_parallel_tree': 1, 'max_bin': 4096}
 # Potential objective values: reg:squarederror, reg:squaredlogerror
 # If not running on a system with a GPU, change `tree_method` to `hist`

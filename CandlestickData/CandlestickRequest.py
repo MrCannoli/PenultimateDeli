@@ -363,14 +363,14 @@ class CandleParser:
                     open_price = float(source_list[i][1])
 
                     # Determine the sell prices based on the setpoint
-                    high_sell_price = open_price * (1 + setpoint)
+                    high_sell_price = round(open_price * (1 + setpoint), 2)
                     # This division is so that the loss is relative; a 50% loss is not recouped by a 50% gain the following day
                     # However with the division, an equal gain the following day would recoup all money lost
                     # This method is equivalent to low_sell_method = "proportional", but really is the default case
-                    low_sell_price = open_price * (1 / (1 + setpoint))
+                    low_sell_price = round(open_price * (1 / (1 + setpoint)), 2)
 
                     if(low_sell_method == "raw"): 
-                        low_sell_price = open_price * (1 - setpoint)
+                        low_sell_price = round(open_price * (1 - setpoint), 2)
 
                     # Search through the end of the present day to see if we hit the high or low sell price first. If neither, use the close price.
                     # Sell point represents the value we sold at: -1 = sold at low, 0 = sold at close, 1 = sold at high
@@ -383,19 +383,19 @@ class CandleParser:
                         if ambiguity_eval_method == "close_estimate":
                             if close_price < open_price:
                                 # Ended lower - assume high price was hit early on in the day
-                                sell_price = high_price
+                                sell_price = high_sell_price
                             else:
                                 # Ended higher - assume low price was hit early on in the day
-                                sell_price = low_price
+                                sell_price = low_sell_price
                         else:
                             # Skip method - set sell price to open price
                             sell_price = open_price
                         sell_point = 0
                     elif(high_price > high_sell_price):
-                        sell_price = high_price
+                        sell_price = high_sell_price
                         sell_point = 1
                     elif(low_price < low_sell_price):
-                        sell_price = low_price
+                        sell_price = low_sell_price
                         sell_point = 2
                     else:
                         sell_price = close_price

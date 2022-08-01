@@ -10,15 +10,15 @@ import os
 from math import floor
 
 # Data selection grouping
-num_days = 3
+num_days = 2
 base_data_folder_name = "All_Data_6-10"
 
 # Trading parameters
-confidence_threshold = 0.9 # Threshold at which we tell the model to try to sell
+confidence_threshold = 0.5 # Threshold at which we tell the model to try to sell
 demon_percentage = 0.5 # Shannon's demon percentage used, scale 0-1
 
 # Files being used
-model_file = 'GeneratedModels/Test_3_days/Test_3_days.model'
+model_file = f'GeneratedModels/Test_{num_days}_days/Test_{num_days}_days.model'
 
 # Folder with original daily data
 og_data_dir= f"../CuttingBoard/{base_data_folder_name}/"
@@ -28,9 +28,6 @@ sim_data_dir = f"../CuttingBoard/ParsedData/{base_data_folder_name}_stripped/{nu
 
 # Folder with SVM formatted data
 parsed_data_dir = f"../CuttingBoard/ParsedData/{base_data_folder_name}_stripped/{num_days}_days/test/"
-
-# Percentage the model was trained against
-model_percentage = 0.005
 
 # Starting cash amount to be trading
 INITIAL_CASH = 10000
@@ -95,6 +92,10 @@ demon_went_broke = False
 individual_cash_all_in = [INITIAL_CASH] * sim_file_len
 individual_cash_demon = [INITIAL_CASH] * sim_file_len
 skip_list = []
+
+# Lists for keeping track of the best performing stocks
+best_performers_value = [INITIAL_CASH] * 10
+best_performers_stock = [""] * 10
 
 for i in range(sim_file_len):
     # Ensure that the two files we are looking at are the same
@@ -173,10 +174,17 @@ for i in range(sim_file_len):
             conf_not_met_count += 1
 
     if(confidence_met_for_stock):
-        print(f'Total cash all in for ${sim_file_list[i][0:und_idx]}: ${individual_cash_all_in[i]}')
-        print(f'Total cash demon for  ${sim_file_list[i][0:und_idx]}: ${individual_cash_demon[i]}')
+        stock_name = sim_file_list[i][0:und_idx]
+        print(f'Total cash all in for ${stock_name}: ${individual_cash_all_in[i]}')
+        print(f'Total cash demon for  ${stock_name}: ${individual_cash_demon[i]}')
+
+        lowest_best_value = min(best_performers_value)
+        if(lowest_best_value < individual_cash_all_in[i]):
+            lowest_best_index = best_performers_value.index(lowest_best_value)
+            best_performers_value[lowest_best_index] = individual_cash_all_in[i]
+            best_performers_stock[lowest_best_index] = stock_name
     else:
-        print(f'Buy confidence never met for ${sim_file_list[i][0:und_idx]}')
+        print(f'Buy confidence never met for ${stock_name}')
         skip_list.append([x])
 
     '''
@@ -194,15 +202,22 @@ for i in range(sim_file_len):
     '''
 
 # Strip the skipped stocks
-i = len(skip_list)
+skip_list_len = len(skip_list)
+i = skip_list_len
 while i > 0:
     i -= 1
     individual_cash_all_in.pop(i)
     individual_cash_demon.pop(i)
 
 # We've completed the full run. Get the average cash from testing
-avg_cash_all_in = sum(individual_cash_all_in) / sim_file_len
-avg_cash_demon = sum(individual_cash_demon) / sim_file_len
+# Note that this is a flawed representation; A stock with a single point meeting the confidence interval will have as much weight in the system
+# as a stock with 500 points past the interval
+avg_cash_all_in = sum(individual_cash_all_in) / (sim_file_len - skip_list_len)
+avg_cash_demon = sum(individual_cash_demon) / (sim_file_len - skip_list_len)
+
+# Sort the best performing lists
+best_performers_stock_sorted = [x for y,x in sorted(zip(best_performers_value, best_performers_stock))]
+best_performers_value_sorted = sorted(best_performers_value)
 
 print("==========================================================================")
 print("Results of test: ")
@@ -215,6 +230,10 @@ print(f"Times sold at stop loss:               {stop_loss_sell_count}")
 print(f"Times sold at assumed price:           {unclear_sell_count}")
 print(f"Times sold at close:                   {close_sell_count}")
 print("\n")
-print(f"Final cash all in: {avg_cash_all_in}")
-print(f"Final cash Shannon's demon {demon_percentage*100}%: {avg_cash_demon}")
+print(f"Average final cash all in: {avg_cash_all_in}")
+print(f"Average final cash Shannon's demon {demon_percentage*100}%: {avg_cash_demon}")
+print("\n")
+print("Best performing stocks:")
+for i in range(len(best_performers_stock)):
+    print(f"{best_performers_stock_sorted[i]}: {best_performers_value_sorted[i]}")
 print("==========================================================================")
