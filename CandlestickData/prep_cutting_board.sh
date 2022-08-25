@@ -8,7 +8,8 @@
 # $4 is a boolean denoting whether to strip transactions or not
 # All inputs past the 4th is a list of percentage values to use as binary setpoints
 # Example use call:
-# ./prep_cutting_board.sh 3 "all_data_6-10" 12345 1 0.005
+# ./prep_cutting_board.sh 2 "all_data_6_10" 12345 1 0.015
+# ./prep_cutting_board.sh 2 "all_data_6_11_to_8_19" 12345 1 0.015
 echo "Configuring data for " $1 " days' worth from ../CuttingBoard/$2" 
 DIR_NAME="$2"
 

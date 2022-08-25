@@ -11,17 +11,14 @@ from math import floor
 
 # Data selection grouping
 num_days = 2
-base_data_folder_name = "All_Data_6-10"
+base_data_folder_name = "all_data_6_11_to_8_19"
 
 # Trading parameters
-confidence_threshold = 0.5 # Threshold at which we tell the model to try to sell
+confidence_threshold = 0.75 # Threshold at which we tell the model to try to sell
 demon_percentage = 0.5 # Shannon's demon percentage used, scale 0-1
 
 # Files being used
 model_file = f'GeneratedModels/Test_{num_days}_days/Test_{num_days}_days.model'
-
-# Folder with original daily data
-og_data_dir= f"../CuttingBoard/{base_data_folder_name}/"
 
 # Folder with sim data
 sim_data_dir = f"../CuttingBoard/ParsedData/{base_data_folder_name}_stripped/{num_days}_days/sim/"

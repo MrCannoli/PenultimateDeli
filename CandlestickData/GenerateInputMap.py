@@ -57,6 +57,6 @@ for data_file in file_list:
     sim_filepath = f"{new_dir}/sim/{data_file}_sim.csv"
     
     c.generate_input_map(og_filepath, new_filepath, num_days, use_binary_setpoints=True, binary_setpoints=setpoints)
-    c.generate_sim_from_daily(og_filepath, sim_filepath, setpoints)
+    c.generate_sim_from_daily(og_filepath, sim_filepath, num_days, setpoints)
 
 print(CandlestickRequest.bcolors.OKGREEN + "Finished parsing data into unique LIBSVM formatted files" + CandlestickRequest.bcolors.ENDC)

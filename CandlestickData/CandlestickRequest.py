@@ -209,6 +209,10 @@ class CandleParser:
         with open(source_filepath, 'r', newline='') as source_file:
             source_reader = csv.reader(source_file)
             source_list = list(source_reader)
+            source_list_len = len(source_list)
+            if(source_list_len <= num_days + 1):
+                print(f"{bcolors.WARNING}{source_filepath} does not have enough data to create an input map file.")
+                return
 
             # Start at index num_days + 1 to go past the header
             for i in range(1+num_days, len(source_list)):
@@ -345,12 +349,16 @@ class CandleParser:
 
     # Generate simulator data from hourly inputs on stock data
     # Output format: year-month-date string, setpoint value, open price, sell price, sell point representation
-    def generate_sim_from_daily(self, source_filepath, sim_filepath, binary_setpoints=[0.005], low_sell_method="proportional", ambiguity_eval_method = "close_estimate"):
+    def generate_sim_from_daily(self, source_filepath, sim_filepath, num_days, binary_setpoints=[0.005], low_sell_method="proportional", ambiguity_eval_method = "close_estimate"):
         formatted_simlist = []
 
         with open(source_filepath, 'r', newline='') as source_file:
             source_reader=csv.reader(source_file)
             source_list = list(source_reader)
+            source_list_len = len(source_list)
+            if(source_list_len <= num_days + 1):
+                print(f"{source_filepath} does not have enough data to create a sim file.")
+                return
 
             # Now move on to create the sim list from the file
             for setpoint in binary_setpoints:

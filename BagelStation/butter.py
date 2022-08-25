@@ -8,7 +8,7 @@ import random
 # Number of past days data used in the input files
 input_num_days = 2
 
-base_folder = "all_data_6-10_stripped"
+base_folder = "all_data_6_10_stripped"
 
 # Base name for the test. Used to generate file names.
 test_basename = f"Test_{input_num_days}_days"
@@ -34,7 +34,7 @@ dtest = xgb.DMatrix(test_file)
 
 eval_list = [(dtest, 'eval'), (dtrain, 'train')]
 
-model_params = {'max_depth':5, 'eta':.3, 'objective':"binary:logistic", 'nthread': 6, 'tree_method': 'hist', 'eval_metric':'error',
+model_params = {'max_depth':5, 'eta':.3, 'objective':"binary:logistic", 'nthread': 6, 'tree_method': 'gpu_hist', 'eval_metric':'error',
                 'lambda': 1, 'alpha': 0, 'grow_policy': 'depthwise', 'num_parallel_tree': 1, 'max_bin': 4096}
 # Potential objective values: reg:squarederror, reg:squaredlogerror
 # If not running on a system with a GPU, change `tree_method` to `hist`
@@ -45,7 +45,7 @@ model_params = {'max_depth':5, 'eta':.3, 'objective':"binary:logistic", 'nthread
 # Can increase trees used with `num_parallel_tree` (default 1). Seems to improve learning rate, but greatly increases computation time - net zero benefit.
 # Can read up on params here: https://xgboost.readthedocs.io/en/stable/parameter.html
 
-num_rounds = 2100
+num_rounds = 800
 
 # Train the model with the given data and inputs
 bst = xgb.train(model_params, dtrain, num_rounds, eval_list)
