@@ -88,6 +88,9 @@ demon_went_broke = False
 
 individual_cash_all_in = [INITIAL_CASH] * sim_file_len
 individual_cash_demon = [INITIAL_CASH] * sim_file_len
+total_gain = 0
+heavy_trade_total_gain = 0
+heavy_trade_conf_met_count = 0
 skip_list = []
 
 # Lists for keeping track of the best performing stocks
@@ -118,6 +121,7 @@ for i in range(sim_file_len):
     # Note: sim file data has format YMD, setpoint, open price, sell price, sell point
 
     confidence_met_for_stock = False
+    individual_conf_met_count = 0
 
     for x in range(num_days, len(sim_file_data)-1):
         # Use predictions to determine sell point
@@ -125,6 +129,7 @@ for i in range(sim_file_len):
         if(preds[x-num_days] > confidence_threshold):
             confidence_met_for_stock = True
             conf_met_count += 1
+            individual_conf_met_count += 1
             # Convert the data into a nice list
             split_data = list(map(float,sim_file_data[x][0].split()))
 
@@ -170,10 +175,17 @@ for i in range(sim_file_len):
         else:
             conf_not_met_count += 1
 
+    stock_name = sim_file_list[i][0:und_idx]
     if(confidence_met_for_stock):
-        stock_name = sim_file_list[i][0:und_idx]
+        individual_gain = ((individual_cash_all_in[i] - INITIAL_CASH) / INITIAL_CASH)
+        total_gain += individual_gain
+
+        if(individual_conf_met_count >= 10):
+            heavy_trade_conf_met_count += individual_conf_met_count
+            heavy_trade_total_gain += individual_gain
+
         print(f'Total cash all in for ${stock_name}: ${individual_cash_all_in[i]}')
-        print(f'Total cash demon for  ${stock_name}: ${individual_cash_demon[i]}')
+        #print(f'Total cash demon for  ${stock_name}: ${individual_cash_demon[i]}')
 
         lowest_best_value = min(best_performers_value)
         if(lowest_best_value < individual_cash_all_in[i]):
@@ -181,7 +193,7 @@ for i in range(sim_file_len):
             best_performers_value[lowest_best_index] = individual_cash_all_in[i]
             best_performers_stock[lowest_best_index] = stock_name
     else:
-        print(f'Buy confidence never met for ${stock_name}')
+        #print(f'Buy confidence never met for ${stock_name}')
         skip_list.append([x])
 
     '''
@@ -229,6 +241,8 @@ print(f"Times sold at close:                   {close_sell_count}")
 print("\n")
 print(f"Average final cash all in: {avg_cash_all_in}")
 print(f"Average final cash Shannon's demon {demon_percentage*100}%: {avg_cash_demon}")
+print(f"Average gain per trade: {100*total_gain/conf_met_count}%")
+print(f"Heavy trade average gain per trade: {100*heavy_trade_total_gain/heavy_trade_conf_met_count}%")
 print("\n")
 print("Best performing stocks:")
 for i in range(len(best_performers_stock)):
