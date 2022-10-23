@@ -22,3 +22,13 @@ print(req_response.url)
 print(req_response.status_code)
 #print(req_response.json())
 
+'''
+TODO:
+- Figure out how to verify auth url works
+- Get a quote request for google to work
+- Create class for TD Ameritrade
+  - Request for individual stocks quotes
+  - Make buy order
+  - Make sell order
+'''
+
